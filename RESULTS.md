@@ -15,7 +15,7 @@ Same tokenizer + encoder; only the **aggregation granularity** changes.
 
 | mode | aggregation unit | seq median | test AUPRC | test AUROC | test F1-macro |
 |---|---|---|---|---|---|
-| `event_stream` | one token per event (+ time tokens) | ~410 | | | |
+| `event_stream` | one token per event (+ time tokens) | ~410 | 0.7218 | 0.9351 | 0.7872 |
 | `windowed` (per-date) | one calendar date = visit | 525 | | | |
 | `windowed` (90-day) | 90-day fixed window | 328 | | | |
 | `qtime` | 9 quantile-time pseudo-visits | 201 | 0.7418 | 0.9404 | 0.7927 |
@@ -42,11 +42,20 @@ Notes:
 | `qtime9_q4` (visit) | 9 quantile pseudo-visits | 0.748 | **validation** AUPRC, seed 0 |
 
 ## Reading so far (preliminary — single seed)
-- Aggregation dominates: heavily-aggregated (`set`/`qtime`) clearly beats the
-  least-aggregated `seq` (0.658) in the source repo.
-- In our framework, `qtime` (0.742) slightly edges `set` (0.736) — coarse temporal
-  order helps a little beyond a pure bag.
-- Whether `event_stream` (full temporal resolution) climbs back above `set`/`qtime`
-  will show whether finer temporal structure keeps paying off on CAD — pending.
-- Differences of ~0.005–0.01 are within single-seed noise; a multi-seed sweep is
-  needed before drawing firm conclusions.
+
+Full spectrum (our framework, seed 1, test AUPRC):
+
+```
+event_stream 0.722   <   set 0.736   <   qtime 0.742
+ (per event)            (bag)            (9 quantile visits)
+```
+
+- The raw per-event stream is the **weakest** (0.722) — consistent with truncation
+  (36% of its sequences exceed 512 tokens, the tail hitting the 1024 cap).
+- Moderate, order-preserving aggregation (`qtime`) is best (0.742), a hair above the
+  pure bag (`set`, 0.736).
+- So it is **neither** a flat plateau **nor** "finer resolution always wins" — there
+  is a mild sweet spot at moderate aggregation.
+- The whole spread is ~0.02 on a **single seed**; treat as suggestive only. A
+  multi-seed sweep (and re-running `windowed` on the current architecture) is needed
+  before any firm claim.
