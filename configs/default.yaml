@@ -1,0 +1,74 @@
+# ---------------------------------------------------------------------------
+# CEHR-BERT-style sequence model for CAD risk prediction.
+# All paths are relative to the project root (ehr-sequence-modeling/).
+# ---------------------------------------------------------------------------
+
+data:
+  ccs_path:   data/ccs_pivot_5_years_selected.csv
+  lab_path:   data/lab_pivot_5_years_selected_clean.csv
+  index_path: data/indexdate.csv
+  label_col:  CAD
+  cache_dir:  outputs/cache
+  # develop mode: subsample patients for fast smoke tests (0 = use all)
+  develop_n:  0
+
+# ---- sequence construction ----
+sequence:
+  # "windowed": events aggregated into visits (baseline that beats raw streams)
+  # "event_stream": one token per event + [ATT] gaps, no aggregation (research arm)
+  mode: windowed
+  # 0 => one visit per distinct calendar date; >0 => aggregate every N days into a visit
+  window_days: 0
+  max_len: 1024          # A1: was 512; median seq was 492/512 -> stop truncating
+  n_lab_bins: 4          # discretize continuous labs into 4 quantile bins
+  age_bin_width: 5       # years per age bucket
+  n_age_bins: 20         # 0..100y
+  # keep the most recent visits when truncating (index date is the anchor)
+  truncate_side: left
+
+# ---- model (CEHR-BERT-style encoder) ----
+model:
+  hidden: 256
+  layers: 6
+  heads: 8
+  ff_mult: 4
+  dropout: 0.2           # A2: was 0.1 (fine-tune overfit peaked at epoch 3)
+  max_visits: 512        # visit/segment embedding table size (raised for longer max_len)
+
+# ---- MLM pretraining ----
+pretrain:
+  enabled: true
+  # which split(s) to pretrain on. "train" is leak-safe; "train+valid" uses more data.
+  source: train
+  mask_prob: 0.15
+  epochs: 60
+  batch_size: 64
+  lr: 0.0002
+  weight_decay: 0.01
+  warmup_frac: 0.1
+  ckpt_name: mlm_pretrain
+
+# ---- CAD fine-tuning ----
+finetune:
+  epochs: 30
+  batch_size: 64
+  lr: 0.0001             # A4: was 5e-5
+  weight_decay: 0.05     # A2: was 0.01
+  warmup_frac: 0.1
+  # class imbalance: "upsample" (physical replication, matches graph project), "weight", or "none"
+  imbalance: upsample
+  from_pretrained: true  # false => train encoder from scratch (ablation)
+  freeze_encoder: false  # full fine-tune: encoder + classifier head jointly
+  patience: 5            # early stopping on val select_metric
+  select_metric: auprc   # model selection on validation
+  ckpt_name: cad_tuned
+
+split:
+  train: 0.64
+  valid: 0.16
+  test: 0.20
+  seed: 42
+
+device: cuda
+seed: 42
+deterministic: false     # EXPLORE mode (flash attn, batch 64, fast). For the final sweep set true + batch_size 32 (bit-exact).

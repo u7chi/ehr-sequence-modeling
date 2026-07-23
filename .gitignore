@@ -1,0 +1,18 @@
+# data (symlinks to the graph project's processed pivots)
+data/*.csv
+
+# caches / build artifacts
+outputs/
+cache/
+*.pkl
+*.pt
+*.ckpt
+*.npz
+*.log
+
+# python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+.venv/
