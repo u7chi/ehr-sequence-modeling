@@ -88,3 +88,4 @@ DESIGN.md                                          # design rationale + evidence
   caches are git-ignored.
 - `configs/smoke.yaml` runs the whole pipeline on a small patient subset in minutes
   — use it to verify a clean checkout works before a full run.
+# ehr-sequence-modeling
